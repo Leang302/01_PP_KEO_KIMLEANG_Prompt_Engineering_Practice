@@ -29,8 +29,15 @@ export function TaskItem({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.2 }}
-      className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-100 dark:border-neutral-800 p-4 flex items-start gap-3 hover:shadow-card"
+      className="group relative overflow-hidden rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 flex items-start gap-3 shadow-sm hover:shadow-card"
     >
+      <span
+        className={`pointer-events-none absolute inset-y-0 left-0 w-1 ${
+          task.completed
+            ? "bg-gradient-to-b from-emerald-400 to-emerald-600"
+            : "bg-gradient-to-b from-brand-400 to-indigo-500"
+        }`}
+      />
       <button
         onClick={() => onToggle(task.id)}
         aria-pressed={task.completed}
@@ -57,7 +64,7 @@ export function TaskItem({
         }}
       >
         <p
-          className={`font-medium truncate text-neutral-900 dark:text-white ${
+          className={`font-semibold truncate text-neutral-900 dark:text-white tracking-tight ${
             task.completed ? "line-through opacity-70" : ""
           }`}
         >
@@ -72,21 +79,34 @@ export function TaskItem({
             {task.description}
           </p>
         )}
-        <div className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-          Priority: {task.priority}
+        <div className="mt-2 flex items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium border ${
+              task.priority === "high"
+                ? "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
+                : task.priority === "medium"
+                ? "bg-amber-50 text-amber-700 border-amber-200"
+                : "bg-emerald-50 text-emerald-700 border-emerald-200"
+            }`}
+          >
+            {task.priority}
+          </span>
+          <span className="text-xs text-neutral-500">
+            Updated {new Date(task.updatedAt).toLocaleDateString()}
+          </span>
         </div>
       </div>
       <div className="flex gap-2">
         <button
           onClick={() => onEdit(task)}
-          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-transform group-hover:translate-y-[-1px]"
           aria-label="Edit task"
         >
           <PencilSquareIcon className="w-5 h-5" />
         </button>
         <button
           onClick={() => onDelete(task)}
-          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+          className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-red-500 transition-transform group-hover:translate-y-[-1px]"
           aria-label="Delete task"
         >
           <TrashIcon className="w-5 h-5" />
