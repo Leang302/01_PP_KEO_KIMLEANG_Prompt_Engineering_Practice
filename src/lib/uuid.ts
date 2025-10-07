@@ -4,8 +4,11 @@ export function generateUuid(): string {
     return crypto.randomUUID();
   }
   const bytes = new Uint8Array(16);
-  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes);
+  if (
+    typeof globalThis.crypto !== "undefined" &&
+    globalThis.crypto.getRandomValues
+  ) {
+    globalThis.crypto.getRandomValues(bytes);
   } else {
     for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
   }
