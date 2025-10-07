@@ -1,103 +1,197 @@
-import Image from "next/image";
+"use client";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Task, TaskFilter, TaskPriority } from "@/types/task";
+import { Header } from "@/components/Header";
+import { TaskForm } from "@/components/TaskForm";
+import { Filters } from "@/components/Filters";
+import { TaskList } from "@/components/TaskList";
+import { TaskDetailModal } from "@/components/modals/TaskDetailModal";
+import { EditTaskModal } from "@/components/modals/EditTaskModal";
+import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
+import { loadTasks, saveTasks } from "@/lib/storage";
+import { createSeedTasks } from "@/lib/seeds";
+import { generateUuid } from "@/lib/uuid";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [persisted, setPersisted] = useState(true);
+  const [filter, setFilter] = useState<TaskFilter>("all");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<
+    "createdDesc" | "createdAsc" | "priorityDesc" | "priorityAsc"
+  >("createdDesc");
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
+  const [editTask, setEditTask] = useState<Task | null>(null);
+  const [deleteTask, setDeleteTask] = useState<Task | null>(null);
+
+  // Initial load + seed if empty
+  useEffect(() => {
+    const res = loadTasks();
+    if (res.ok) {
+      let initial = res.value;
+      if (initial.length === 0) {
+        initial = createSeedTasks();
+        saveTasks(initial);
+      }
+      setTasks(initial);
+      setPersisted(res.persisted);
+    } else {
+      setTasks(createSeedTasks());
+      setPersisted(false);
+    }
+  }, []);
+
+  // Persist on changes
+  useEffect(() => {
+    if (tasks.length === 0) return; // avoid saving before initial load completes
+    const res = saveTasks(tasks);
+    setPersisted(res.ok ? res.persisted : false);
+  }, [tasks]);
+
+  const counts = useMemo(() => {
+    const active = tasks.filter((t) => !t.completed).length;
+    const completed = tasks.length - active;
+    return { all: tasks.length, active, completed };
+  }, [tasks]);
+
+  const hasDuplicateTitle = useCallback(
+    (title: string, exceptId?: string) => {
+      const lower = title.toLowerCase();
+      return tasks.some(
+        (t) => t.id !== exceptId && t.title.toLowerCase() === lower
+      );
+    },
+    [tasks]
+  );
+
+  const visibleTasks = useMemo(() => {
+    let items = tasks;
+    if (filter === "active") items = items.filter((t) => !t.completed);
+    if (filter === "completed") items = items.filter((t) => t.completed);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter((t) => t.title.toLowerCase().includes(q));
+    }
+    const priorityWeight: Record<TaskPriority, number> = {
+      low: 1,
+      medium: 2,
+      high: 3,
+    };
+    if (sort === "createdDesc")
+      items = [...items].sort((a, b) => b.createdAt - a.createdAt);
+    if (sort === "createdAsc")
+      items = [...items].sort((a, b) => a.createdAt - b.createdAt);
+    if (sort === "priorityDesc")
+      items = [...items].sort(
+        (a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]
+      );
+    if (sort === "priorityAsc")
+      items = [...items].sort(
+        (a, b) => priorityWeight[a.priority] - priorityWeight[b.priority]
+      );
+    return items;
+  }, [tasks, filter, search, sort]);
+
+  function addTask(title: string, description: string, priority: TaskPriority) {
+    const now = Date.now();
+    const newTask: Task = {
+      id: generateUuid(),
+      title,
+      description,
+      completed: false,
+      priority,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setTasks((prev) => [newTask, ...prev]);
+  }
+
+  function toggleTask(id: string) {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? { ...t, completed: !t.completed, updatedAt: Date.now() }
+          : t
+      )
+    );
+  }
+
+  function saveEdit(partial: {
+    id: string;
+    title: string;
+    description: string;
+    priority: TaskPriority;
+  }) {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === partial.id
+          ? {
+              ...t,
+              title: partial.title,
+              description: partial.description,
+              priority: partial.priority,
+              updatedAt: Date.now(),
+            }
+          : t
+      )
+    );
+    setEditTask(null);
+  }
+
+  function confirmDelete(taskId: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setDeleteTask(null);
+  }
+
+  return (
+    <div className="min-h-screen px-4 py-8 sm:py-10">
+      <div className="mx-auto w-full max-w-3xl space-y-5">
+        <Header />
+        {!persisted && (
+          <div
+            role="status"
+            className="rounded-xl border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-sm"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            Local storage is unavailable. Tasks will not persist across reloads.
+          </div>
+        )}
+        <TaskForm
+          onAdd={addTask}
+          hasDuplicateTitle={(t) => hasDuplicateTitle(t)}
+        />
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-card p-4 sm:p-5 border border-neutral-100 dark:border-neutral-800 space-y-4">
+          <Filters
+            filter={filter}
+            counts={counts}
+            onChange={setFilter}
+            search={search}
+            onSearch={setSearch}
+            sort={sort}
+            onSort={setSort}
+          />
+          <TaskList
+            tasks={visibleTasks}
+            onToggle={toggleTask}
+            onOpenDetail={setDetailTask}
+            onEdit={setEditTask}
+            onDelete={setDeleteTask}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      <TaskDetailModal task={detailTask} onClose={() => setDetailTask(null)} />
+      <EditTaskModal
+        task={editTask}
+        onCancel={() => setEditTask(null)}
+        onSave={saveEdit}
+        hasDuplicateTitle={hasDuplicateTitle}
+      />
+      <ConfirmDeleteModal
+        task={deleteTask}
+        onCancel={() => setDeleteTask(null)}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

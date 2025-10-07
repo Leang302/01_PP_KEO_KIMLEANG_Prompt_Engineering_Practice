@@ -1,3 +1,62 @@
+# Todo App (Next.js + TypeScript + Tailwind CSS + Framer Motion)
+
+Production-ready, offline-capable Todo List built with Next.js App Router, TypeScript, Tailwind CSS v4, and Framer Motion.
+
+## Features
+
+- Add, edit, delete tasks with confirmation and validation
+- View task details (description, created/updated timestamps)
+- Complete/active status with filters and counts
+- Optional search and sort (by created date and priority)
+- Seeded with 3 example tasks on first run
+- Local persistence via localStorage with safe in-memory fallback and warning
+- Accessible UI, keyboard friendly, responsive, and animated
+
+## Tech Stack
+
+- Next.js (App Router) + React 19
+- TypeScript
+- Tailwind CSS v4
+- Framer Motion
+- Heroicons
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+Then open `http://localhost:3000`.
+
+## Project Structure
+
+```
+src/
+  app/
+    layout.tsx
+    page.tsx
+    globals.css
+  components/
+    ... UI components
+  lib/
+    storage.ts
+    uuid.ts
+    seeds.ts
+  types/
+    task.ts
+```
+
+## Notes
+
+- Duplicate titles are allowed; a small inline notice appears on create/edit.
+- If localStorage is unavailable (private mode or disabled), the app stores data in-memory and shows a non-blocking toast explaining tasks won't persist.
+- Keyboard: Enter to add, Escape to close modals, Tab order and focus rings are maintained.
+
+## License
+
+MIT
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
